@@ -1,29 +1,60 @@
 import os
+from pathlib import Path
 from uuid import UUID
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from postgrest import APIError
 from supabase import Client, create_client
+from werkzeug.exceptions import HTTPException
 
 load_dotenv()
+
+PROJECT_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = PROJECT_DIR / "public"
 
 app = Flask(__name__)
 
 supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
+# A server-only key stays on the serverless function; it is never sent to the
+# browser. The publishable key remains a development fallback only.
+supabase_key = (
+    os.getenv("SUPABASE_SECRET_KEY")
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    or os.getenv("SUPABASE_PUBLISHABLE_KEY")
+)
 
-if not supabase_url or not supabase_key:
-    raise RuntimeError(
-        "Missing Supabase configuration. Set SUPABASE_URL and "
-        "SUPABASE_PUBLISHABLE_KEY in your .env file."
-    )
+# Do not fail during Vercel's function import when project variables have not
+# been entered yet. The browser shell and /health remain available and API
+# requests receive an actionable 503 response instead of a generic invocation
+# error. Add SUPABASE_URL and SUPABASE_SECRET_KEY in Vercel Project Settings.
+supabase: Client | None = (
+    create_client(supabase_url, supabase_key)
+    if supabase_url and supabase_key
+    else None
+)
 
-supabase: Client = create_client(supabase_url, supabase_key)
+
+@app.after_request
+def add_cors_headers(response):
+    """Support optional standalone frontend development without credentials."""
+    response.headers["Access-Control-Allow-Origin"] = os.getenv("FRONTEND_ORIGIN", "*")
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-User-Id"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
 
 
 def error(message: str, status: int):
     return jsonify({"error": message}), status
+
+
+@app.before_request
+def require_supabase_for_api():
+    if request.path.startswith("/api/") and supabase is None:
+        return error(
+            "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SECRET_KEY in Vercel.",
+            503,
+        )
 
 
 def request_user_id():
@@ -50,7 +81,13 @@ def fetch_event(event_id: str):
 
 @app.get("/")
 def index():
-    return jsonify({"service": "event-registration-api", "routes": "/api/events"})
+    """Serve the CampusConnect client locally and from the Render function."""
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.get("/health")
+def health_check():
+    return jsonify({"status": "ok"})
 
 
 @app.get("/api/events")
@@ -175,11 +212,30 @@ def event_registrations(event_id: str):
         return error(exc.message, 502)
 
 
+@app.get("/<path:asset_path>")
+def frontend_asset(asset_path: str):
+    """Serve static browser assets and fall back to the client application."""
+    if asset_path.startswith("api/"):
+        return error("Route not found.", 404)
+    requested_file = FRONTEND_DIR / asset_path
+    if requested_file.is_file():
+        return send_from_directory(FRONTEND_DIR, asset_path)
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
 @app.errorhandler(404)
 def route_not_found(_error):
     return error("Route not found.", 404)
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.errorhandler(Exception)
+def unexpected_error(exc):
+    """Keep dependency/network failures from becoming opaque 500 responses."""
+    if isinstance(exc, HTTPException):
+        return exc
+    app.logger.exception("Unhandled request error")
+    return error("The backend could not reach its data service.", 502)
 
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)

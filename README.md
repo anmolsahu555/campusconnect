@@ -1,7 +1,8 @@
 # CampusConnect web application
 
-This repository is Render-ready as a single Flask deployment: it serves the
-CampusConnect frontend from `frontend/` at `/` and its API from `/api/*`.
+This repository is ready for Render and Vercel as a single Flask deployment:
+it serves the CampusConnect frontend from `public/` at `/` and its API from
+`/api/*`.
 
 ## Local development
 
@@ -45,10 +46,26 @@ the temporary `X-User-Id` UUID header. The registration endpoint accepts the
 same UUID as `user_id` in its JSON body. Replace both with verified identity
 from real authentication before deploying.
 
-The browser client is included in `frontend/` and calls relative API routes, so
+The browser client is included in `public/` and calls relative API routes, so
 it works unchanged locally and on Render. The API also allows cross-origin
 requests for optional independent frontend development; in production set
 `FRONTEND_ORIGIN` to an exact origin if you expose the API separately.
+
+## Deploy to Vercel
+
+Import this GitHub repository in Vercel with the repository root set to this
+folder. Vercel detects the Flask `app` in `app.py`, serves `public/` through
+its CDN, and invokes Flask for API requests. Add these environment variables in
+Vercel Project Settings before deploying:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your_server_only_secret
+```
+
+Use `vercel dev` for local Vercel-runtime testing after installing the Vercel
+CLI. The supplied `vercel.json` keeps local virtual-environment files out of
+the serverless-function bundle.
 
 ## Routes
 
