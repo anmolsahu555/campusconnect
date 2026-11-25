@@ -11,19 +11,12 @@ load_dotenv()
 app = Flask(__name__)
 
 supabase_url = os.getenv("SUPABASE_URL")
-# A secret/service key is safe here because this is server-side code. Never send
-# it to a browser or commit it to source control. The publishable key fallback
-# is useful only when the tables have intentionally public Data API policies.
-supabase_key = (
-    os.getenv("SUPABASE_SECRET_KEY")
-    or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    or os.getenv("SUPABASE_PUBLISHABLE_KEY")
-)
+supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
 
 if not supabase_url or not supabase_key:
     raise RuntimeError(
         "Missing Supabase configuration. Set SUPABASE_URL and "
-        "SUPABASE_SECRET_KEY (preferred) or SUPABASE_PUBLISHABLE_KEY in your .env file."
+        "SUPABASE_PUBLISHABLE_KEY in your .env file."
     )
 
 supabase: Client = create_client(supabase_url, supabase_key)
@@ -58,12 +51,6 @@ def fetch_event(event_id: str):
 @app.get("/")
 def index():
     return jsonify({"service": "event-registration-api", "routes": "/api/events"})
-
-
-@app.get("/health")
-def health_check():
-    """Lightweight health check for Render and other load balancers."""
-    return jsonify({"status": "ok"})
 
 
 @app.get("/api/events")
@@ -105,6 +92,8 @@ def create_registration():
     event, failure = fetch_event(event_id)
     if failure:
         return failure
+    if event.get("status") != "published":
+        return error("Registration is unavailable for this event.", 409)
 
     try:
         existing = (
@@ -192,5 +181,5 @@ def route_not_found(_error):
 
 
 if __name__ == "__main__":
-    # Render starts this module with Gunicorn. This remains useful for local runs.
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)
+    app.run(debug=True)
+

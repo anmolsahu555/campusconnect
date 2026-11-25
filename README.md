@@ -1,4 +1,7 @@
-# Event registration API
+# CampusConnect web application
+
+This repository is Render-ready as a single Flask deployment: it serves the
+CampusConnect frontend from `frontend/` at `/` and its API from `/api/*`.
 
 ## Local development
 
@@ -7,6 +10,9 @@ Run the service with:
 ```powershell
 .\venv\Scripts\python.exe app.py
 ```
+
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000). No separate frontend
+server is required.
 
 For the backend to access private tables, add the server-only project secret to
 your local `.env` (do not expose or commit it):
@@ -38,6 +44,11 @@ The API is unauthenticated for now. Routes that need to know who is calling use
 the temporary `X-User-Id` UUID header. The registration endpoint accepts the
 same UUID as `user_id` in its JSON body. Replace both with verified identity
 from real authentication before deploying.
+
+The browser client is included in `frontend/` and calls relative API routes, so
+it works unchanged locally and on Render. The API also allows cross-origin
+requests for optional independent frontend development; in production set
+`FRONTEND_ORIGIN` to an exact origin if you expose the API separately.
 
 ## Routes
 
