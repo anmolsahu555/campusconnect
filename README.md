@@ -50,6 +50,8 @@ The browser client is included in `public/` and calls relative API routes, so
 it works unchanged locally and on Render. The API also allows cross-origin
 requests for optional independent frontend development; in production set
 `FRONTEND_ORIGIN` to an exact origin if you expose the API separately.
+When the events API is unavailable or has no events, the client displays
+labeled sample events for demonstration; they cannot be registered.
 
 ## Deploy to Vercel
 
