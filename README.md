@@ -35,23 +35,37 @@ Render:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your_server_only_secret
+SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+FLASK_SECRET_KEY=generate_a_long_random_value
+FLASK_SESSION_COOKIE_SECURE=true
+CAMPUSCONNECT_ORGANIZER_USERNAME=choose_a_username
+CAMPUSCONNECT_ORGANIZER_EMAIL=organizer_account_email
 ```
 
 Render installs the packages from `requirements.txt`, starts the service with
 Gunicorn, and checks `GET /health` for service health. Do not add the Supabase
 secret to source control.
 
-The API is unauthenticated for now. Routes that need to know who is calling use
-the temporary `X-User-Id` UUID header. The registration endpoint accepts the
-same UUID as `user_id` in its JSON body. Replace both with verified identity
-from real authentication before deploying.
+Event publishing requires a verified Supabase Auth session for the organizer
+email configured on the server. Create and confirm that account in the Supabase
+Auth dashboard, then configure the environment variables below. The organizer
+username is an alias mapped to that email, not a Supabase Auth username.
+
+The existing student registration endpoints still use a temporary
+`X-User-Id` UUID header. Do not treat those routes as production-ready
+authorization.
 
 The browser client is included in `public/` and calls relative API routes, so
 it works unchanged locally and on Render. The API also allows cross-origin
-requests for optional independent frontend development; in production set
-`FRONTEND_ORIGIN` to an exact origin if you expose the API separately.
+requests for optional independent frontend development; set `FRONTEND_ORIGIN`
+to the exact frontend origin when using organizer sessions across origins.
 When the events API is unavailable or has no events, the client displays
 labeled sample events for demonstration; they cannot be registered.
+The Events page opens in public demo organizer mode so visitors can try the
+event form. Role and created events are saved only in each visitor's browser,
+not in Supabase. For shared publishing, use the separate organizer sign-in
+panel, which requires verified Supabase Auth and the server-side allowlist
+described below.
 
 ## Deploy to Vercel
 
@@ -63,18 +77,28 @@ Vercel Project Settings before deploying:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your_server_only_secret
+SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+FLASK_SECRET_KEY=generate_a_long_random_value
+CAMPUSCONNECT_ORGANIZER_USERNAME=choose_a_username
+CAMPUSCONNECT_ORGANIZER_EMAIL=organizer_account_email
 ```
 
 Use `vercel dev` for local Vercel-runtime testing after installing the Vercel
 CLI. The supplied `vercel.json` keeps local virtual-environment files out of
-the serverless-function bundle.
+the serverless-function bundle. Add these values in Vercel Project Settings,
+not in source control. Create the Supabase Auth user with a new password
+directly in the Supabase dashboard and confirm its email before signing in.
 
 ## Routes
 
 | Method | Route | Request details |
 | --- | --- | --- |
 | GET | `/api/events` | Browse events. |
+| POST | `/api/events` | Publish an event; requires the configured organizer session. |
 | GET | `/api/events/{id}` | Event details. |
+| POST | `/api/auth/login` | JSON: `{"username":"...","password":"..."}`. |
+| GET | `/api/auth/me` | Check organizer sign-in status. |
+| POST | `/api/auth/logout` | Clear the organizer session. |
 | POST | `/api/registrations` | JSON: `{"event_id":"uuid","user_id":"uuid"}`. Returns `201` or `409`. |
 | GET | `/api/me/registrations` | Requires `X-User-Id`. |
 | GET | `/api/events/{id}/registrations` | Requires the organizer's `X-User-Id`. |

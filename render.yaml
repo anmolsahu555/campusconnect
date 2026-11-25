@@ -10,3 +10,13 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: FLASK_SESSION_COOKIE_SECURE
+        value: "true"
+      - key: CAMPUSCONNECT_ORGANIZER_USERNAME
+        sync: false
+      - key: CAMPUSCONNECT_ORGANIZER_EMAIL
+        sync: false
