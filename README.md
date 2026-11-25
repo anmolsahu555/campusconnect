@@ -60,7 +60,8 @@ it works unchanged locally and on Render. The API also allows cross-origin
 requests for optional independent frontend development; set `FRONTEND_ORIGIN`
 to the exact frontend origin when using organizer sessions across origins.
 When the events API is unavailable or has no events, the client displays
-labeled sample events for demonstration; they cannot be registered.
+labeled sample events for demonstration. Demo registrations are saved only in
+the current browser and are not real reservations.
 The Events page opens in public demo organizer mode so visitors can try the
 event form. Role and created events are saved only in each visitor's browser,
 not in Supabase. For shared publishing, use the separate organizer sign-in
